@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="body" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#fff8f0;stop-opacity:1" />
+      <stop offset="30%" style="stop-color:#ffe0b2;stop-opacity:1" />
+      <stop offset="70%" style="stop-color:#ffcc80;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#f57c00;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="inner" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:0.95" />
+      <stop offset="100%" style="stop-color:#fff3e0;stop-opacity:0.4" />
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="40%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:0.35" />
+      <stop offset="100%" style="stop-color:#ffffff;stop-opacity:0" />
+    </radialGradient>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="6" stdDeviation="16" flood-color="#e65100" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+
+  <circle cx="256" cy="230" r="200" fill="url(#glow)"/>
+
+  <g filter="url(#shadow)">
+    <!-- 底壳 -->
+    <path d="M256 430 C256 430, 60 380, 45 260 C35 190, 50 120, 80 90 C100 60, 150 30, 256 30 C362 30, 412 60, 432 90 C462 120, 477 190, 467 260 C452 380, 256 430, 256 430Z" fill="#e65100" opacity="0.2"/>
+
+    <!-- 上壳 -->
+    <path d="M256 420 C256 420, 70 370, 55 255 C45 185, 60 120, 90 85 C110 60, 155 35, 256 35 C357 35, 402 60, 422 85 C452 120, 467 185, 457 255 C442 370, 256 420, 256 420Z" fill="url(#body)"/>
+
+    <!-- 内面珠光 -->
+    <path d="M256 380 C256 380, 120 345, 110 260 C105 210, 115 155, 135 125 C150 105, 180 85, 256 85 C332 85, 362 105, 377 125 C397 155, 407 210, 402 260 C392 345, 256 380, 256 380Z" fill="url(#inner)"/>
+
+    <!-- 放射纹路 -->
+    <g stroke="#ff9800" stroke-width="1.8" stroke-opacity="0.25" fill="none" stroke-linecap="round">
+      <path d="M256 400 C256 300, 170 240, 68 240"/><path d="M256 400 C256 300, 175 200, 80 170"/>
+      <path d="M256 400 C256 300, 190 165, 98 115"/><path d="M256 400 C256 280, 210 135, 125 65"/>
+      <path d="M256 400 C256 260, 220 110, 155 42"/><path d="M256 400 C256 240, 240 80, 190 28"/>
+      <path d="M256 400 C256 240, 272 80, 322 28"/><path d="M256 400 C256 260, 292 110, 357 42"/>
+      <path d="M256 400 C256 280, 302 135, 387 65"/><path d="M256 400 C256 300, 322 165, 414 115"/>
+      <path d="M256 400 C256 300, 337 200, 432 170"/><path d="M256 400 C256 300, 342 240, 444 240"/>
+    </g>
+
+    <!-- 波浪上缘 -->
+    <path d="M68 240 C68 240, 80 215, 100 200 C115 210, 130 225, 155 205 C170 215, 185 230, 210 215 C225 220, 240 230, 256 225 C272 230, 287 220, 302 215 C327 230, 342 215, 357 205 C382 225, 397 210, 412 200 C432 215, 444 240, 444 240" fill="none" stroke="#ff9800" stroke-width="3" stroke-opacity="0.4" stroke-linecap="round"/>
+
+    <!-- 珍珠 -->
+    <circle cx="256" cy="200" r="14" fill="white" opacity="0.75"/>
+    <circle cx="256" cy="198" r="5" fill="white" opacity="0.95"/>
+    <circle cx="253" cy="196" r="2" fill="white"/>
+  </g>
+
+  <ellipse cx="256" cy="422" rx="12" ry="8" fill="#e65100" opacity="0.3"/>
+</svg>

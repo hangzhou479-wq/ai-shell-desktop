@@ -1,0 +1,78 @@
+name: Build AI-Shell
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  # ============================================
+  # macOS
+  # ============================================
+  build-mac:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: |
+          cd ai-shell && npm install --omit=dev
+          cd ../ai-shell-desktop && npm install --omit=dev
+
+      - name: Download portable Node.js for macOS
+        run: |
+          curl -L -o /tmp/node-mac.tar.gz https://nodejs.org/dist/v20.19.0/node-v20.19.0-darwin-arm64.tar.gz
+          tar -xzf /tmp/node-mac.tar.gz -C /tmp/
+          cp /tmp/node-v20.19.0-darwin-arm64/bin/node ai-shell-desktop/
+
+      - name: Package macOS
+        run: |
+          bash ai-shell/build_mac.sh
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AI-Shell-macOS
+          path: dist/AI-Shell-*.dmg
+
+  # ============================================
+  # Windows
+  # ============================================
+  build-win:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: |
+          cd ai-shell; npm install --omit=dev
+          cd ..\ai-shell-desktop; npm install --omit=dev
+        shell: bash
+
+      - name: Download portable Node.js for Windows
+        run: |
+          curl -L -o node-win.zip https://nodejs.org/dist/v20.19.0/node-v20.19.0-win-x64.zip
+          unzip -o node-win.zip -d /tmp/
+          cp /tmp/node-v20.19.0-win-x64/node.exe ai-shell-desktop/
+        shell: bash
+
+      - name: Package Windows
+        run: |
+          bash ai-shell/build_win.sh
+        shell: bash
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AI-Shell-Windows
+          path: dist/AI-Shell-*.zip

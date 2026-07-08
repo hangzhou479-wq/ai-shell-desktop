@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI-Shell</title>
+  <link rel="icon" type="image/svg+xml" href="icon.svg">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <!-- 侧边栏 — 历史对话 -->
+    <aside id="sidebar">
+      <div class="sidebar-header">
+        <h1>AI-Shell</h1>
+        <button id="btn-new-session" title="新对话">+</button>
+      </div>
+
+      <div class="sidebar-sessions" id="session-list">
+        <div class="session-item active">💬 当前对话</div>
+      </div>
+
+      <div class="sidebar-footer">
+        <button id="btn-settings" class="sidebar-btn">设置</button>
+      </div>
+    </aside>
+
+    <!-- 主区域 -->
+    <main id="main">
+      <!-- 状态栏 -->
+      <header id="statusbar">
+        <span id="status-dot" style="width:7px;height:7px;border-radius:50%;background:#ccc;display:inline-block;flex-shrink:0"></span>
+        <span id="status-model">deepseek-chat</span>
+        <span id="status-tokens"></span>
+        <span id="status-dir"></span>
+      </header>
+
+      <!-- 聊天区 — 空白 -->
+      <div id="chat-container">
+        <div id="messages"></div>
+      </div>
+
+      <!-- 输入区 -->
+      <div id="input-area">
+        <div class="input-wrapper">
+          <textarea id="user-input" placeholder="输入你想做的事情..." rows="1"></textarea>
+          <button id="btn-send" title="发送">▶</button>
+        </div>
+        <div class="input-hint">Enter 发送 · Shift+Enter 换行</div>
+      </div>
+    </main>
+  </div>
+
+  <!-- 设置对话框 -->
+  <div id="settings-overlay" class="overlay hidden">
+    <div class="dialog">
+      <h2>设置</h2>
+      <div class="form-group">
+        <label>DeepSeek API Key</label>
+        <input type="password" id="api-key-input" placeholder="sk-...">
+        <small>从 platform.deepseek.com 获取</small>
+      </div>
+      <div class="form-group">
+        <label>默认保存路径</label>
+        <div style="display:flex;gap:8px">
+          <input type="text" id="save-path-input" placeholder="点击右侧按钮选择文件夹" style="flex:1" readonly>
+          <button id="btn-pick-path" class="btn-secondary" style="white-space:nowrap;padding:8px 14px">选择文件夹</button>
+        </div>
+        <small>PPT 等生成文件默认保存位置</small>
+      </div>
+      <div class="form-group">
+        <label>模型</label>
+        <select id="model-select">
+          <option value="deepseek-chat">deepseek-chat（日常编程）</option>
+          <option value="deepseek-reasoner">deepseek-reasoner（深度推理）</option>
+        </select>
+      </div>
+      <div class="dialog-buttons">
+        <button id="btn-settings-cancel" class="btn-secondary">取消</button>
+        <button id="btn-settings-save" class="btn-primary">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
