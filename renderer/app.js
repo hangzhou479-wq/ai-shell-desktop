@@ -1,12 +1,11 @@
 /**
- * AI-Shell Desktop — 前端逻辑 (橙白主题)
+ * AI Shell — 前端交互逻辑 (Electron IPC 版)
  */
 (function () {
   'use strict';
 
   const $ = (sel) => document.querySelector(sel);
 
-  // DOM
   const messagesEl = $('#messages');
   const inputEl = $('#user-input');
   const sendBtn = $('#btn-send');
@@ -16,88 +15,112 @@
   const statusDir = $('#status-dir');
   const settingsOverlay = $('#settings-overlay');
 
-  let ws = null;
   let isGenerating = false;
   let currentAssistantMsg = null;
   let currentToolPanel = null;
   let toolCallCount = 0;
   let currentSession = 'default';
-  let sessions = [];
 
   // ============================================================
-  // WebSocket
+  // 初始化
   // ============================================================
-  function connect() {
-    updateDot('connecting');
-    const port = location.port || '23789';
-    ws = new WebSocket(`ws://localhost:${port}`);
+  async function init() {
+    try {
+      const s = await window.aiShell.getStatus();
+      if (s.hasApiKey) { statusModel.textContent = s.model; statusDir.textContent = '● 已连接'; }
+      else { showSettings(); }
+    } catch (e) {}
 
-    ws.onopen = () => {
-      updateDot('connected');
-      ws.send(JSON.stringify({ type: 'status' }));
-      ws.send(JSON.stringify({ type: 'session-list' }));
-    };
-
-    ws.onmessage = (event) => {
-      try { handleMessage(JSON.parse(event.data)); } catch (e) {}
-    };
-
-    ws.onclose = () => {
-      updateDot('disconnected');
-      setTimeout(connect, 3000);
-    };
-
-    ws.onerror = () => updateDot('disconnected');
+    loadSessionList();
+    bindEvents();
   }
 
-  function updateDot(state) {
-    const dot = $('#status-dot');
-    if (!dot) return;
-    if (state === 'connected') dot.style.background = '#4a8c5c';
-    else if (state === 'connecting') dot.style.background = '#e07b30';
-    else dot.style.background = '#d14343';
-  }
+  function bindEvents() {
+    sendBtn.addEventListener('click', sendMessage);
+    inputEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+    });
+    inputEl.addEventListener('input', () => {
+      inputEl.style.height = 'auto';
+      inputEl.style.height = Math.min(inputEl.scrollHeight, 120) + 'px';
+    });
 
-  function send(data) {
-    if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(data));
+    $('#btn-new-session').addEventListener('click', async () => {
+      if (isGenerating) return;
+      await window.aiShell.clearSession();
+      messagesEl.innerHTML = '';
+      statusTokens.textContent = '';
+      loadSessionList();
+    });
+
+    $('#btn-settings').addEventListener('click', showSettings);
+    $('#btn-settings-save').addEventListener('click', saveSettings);
+    $('#btn-settings-cancel').addEventListener('click', hideSettings);
+    $('#btn-pick-path').addEventListener('click', async () => {
+      const folder = await window.aiShell.pickFolder();
+      if (folder) $('#save-path-input').value = folder;
+    });
   }
 
   // ============================================================
-  // 消息处理
+  // 消息发送
   // ============================================================
-  function handleMessage(msg) {
-    switch (msg.type) {
-      case 'status': updateStatus(msg.data); break;
-      case 'token': handleToken(msg.data); break;
-      case 'tool-start': handleToolStart(msg.data); break;
-      case 'tool-end': handleToolEnd(msg.data); break;
-      case 'done': handleDone(msg.data); break;
-      case 'error': handleError(msg.message); break;
-      case 'session-list': renderSessionList(msg.data); break;
-      case 'session-loaded': handleSessionLoaded(msg.data); break;
-      case 'session-cleared': newSession(); break;
-      case 'model-changed': statusModel.textContent = msg.data.model; break;
-      case 'save-path': $('#save-path-input').value = msg.data.path || ''; break;
-      case 'folder-picked': $('#save-path-input').value = msg.data.path || ''; break;
+  async function sendMessage() {
+    if (isGenerating) return;
+    const text = inputEl.value.trim();
+    if (!text) return;
+
+    appendMessage('user', text);
+    inputEl.value = '';
+    inputEl.style.height = 'auto';
+
+    isGenerating = true;
+    sendBtn.classList.add('generating');
+    sendBtn.textContent = '■';
+    toolCallCount = 0;
+
+    // 注册事件
+    window.aiShell.removeAllListeners();
+    window.aiShell.onToken(handleToken);
+    window.aiShell.onToolStart(handleToolStart);
+    window.aiShell.onToolEnd(handleToolEnd);
+
+    currentAssistantMsg = appendMessage('assistant', '');
+    currentAssistantMsg.querySelector('.message-content').classList.add('streaming-cursor');
+    currentToolPanel = null;
+
+    const result = await window.aiShell.sendMessage(text);
+
+    if (currentAssistantMsg) {
+      currentAssistantMsg.querySelector('.message-content').classList.remove('streaming-cursor');
     }
-  }
 
-  function updateStatus(data) {
-    if (data.hasApiKey) {
-      statusModel.textContent = data.model;
-      statusDir.textContent = '● 已连接';
-    } else {
-      showSettings();
+    if (result.error) {
+      if (currentAssistantMsg) {
+        currentAssistantMsg.querySelector('.message-content').innerHTML +=
+          '<br><span style="color:var(--red);font-weight:500">' + escapeHtml(result.error) + '</span>';
+      }
+    } else if (result.tokens) {
+      statusTokens.textContent = '~' + result.tokens + ' tokens';
     }
+
+    isGenerating = false;
+    sendBtn.classList.remove('generating');
+    sendBtn.textContent = '▶';
+    currentAssistantMsg = null;
+    loadSessionList();
   }
 
+  // ============================================================
+  // 事件处理
+  // ============================================================
   function handleToken(token) {
     if (!currentAssistantMsg) return;
-    const content = currentAssistantMsg.querySelector('.message-content');
-    content.classList.remove('streaming-cursor');
-    content.appendChild(document.createTextNode(token));
+    const c = currentAssistantMsg.querySelector('.message-content');
+    c.classList.remove('streaming-cursor');
+    c.appendChild(document.createTextNode(token));
     scrollDown();
-    content.classList.add('streaming-cursor');
+    c.classList.add('streaming-cursor');
   }
 
   function handleToolStart(data) {
@@ -127,121 +150,43 @@
     }
   }
 
-  function handleDone(data) {
-    if (currentAssistantMsg) {
-      currentAssistantMsg.querySelector('.message-content').classList.remove('streaming-cursor');
-    }
-    isGenerating = false;
-    sendBtn.classList.remove('generating');
-    sendBtn.textContent = '▶';
-    currentAssistantMsg = null;
-    if (data && data.tokens) statusTokens.textContent = '~' + data.tokens + ' tokens';
-    send({ type: 'session-list' });
-  }
-
-  function handleError(msg) {
-    if (currentAssistantMsg) {
-      const c = currentAssistantMsg.querySelector('.message-content');
-      c.classList.remove('streaming-cursor');
-      c.innerHTML += '<br><span style="color:var(--red);font-weight:500">发送错误: ' + escapeHtml(msg) + '</span>';
-    }
-    isGenerating = false;
-    sendBtn.classList.remove('generating');
-    sendBtn.textContent = '▶';
-    currentAssistantMsg = null;
-  }
-
   // ============================================================
   // 会话管理
   // ============================================================
-  function renderSessionList(list) {
-    sessions = list || [];
+  async function loadSessionList() {
+    const sessions = await window.aiShell.listSessions();
     sessionList.innerHTML = '';
 
-    // 当前会话在顶部
-    const curDiv = document.createElement('div');
-    curDiv.className = 'session-item active';
-    curDiv.textContent = currentSession === 'default' ? '新对话' : currentSession;
-    curDiv.addEventListener('click', () => {
+    const cur = document.createElement('div');
+    cur.className = 'session-item active';
+    cur.textContent = currentSession === 'default' ? '新对话' : currentSession;
+    cur.addEventListener('click', async () => {
       if (isGenerating) return;
+      await window.aiShell.clearSession();
       currentSession = 'default';
-      send({ type: 'session-clear' });
+      messagesEl.innerHTML = '';
+      loadSessionList();
     });
-    sessionList.appendChild(curDiv);
+    sessionList.appendChild(cur);
 
-    // 已保存的会话（跳过当前正在看的）
-    for (const s of sessions) {
+    for (const s of (sessions || [])) {
       if (s.name === currentSession) continue;
       const item = document.createElement('div');
       item.className = 'session-item';
       item.textContent = s.name;
-
-      const del = document.createElement('span');
-      del.className = 'session-delete';
-      del.textContent = '×';
-      del.addEventListener('click', (e) => {
-        e.stopPropagation();
-        item.remove();
-      });
-      item.appendChild(del);
-
-      item.addEventListener('click', () => {
+      item.addEventListener('click', async () => {
         if (isGenerating) return;
         currentSession = s.name;
-        loadSession(s.name);
+        const data = await window.aiShell.loadSession(s.name);
+        messagesEl.innerHTML = '';
+        for (const m of data.messages) {
+          if (m.role === 'user') appendMessage('user', m.content);
+          else if (m.role === 'assistant' && m.content) appendMessage('assistant', m.content);
+        }
+        loadSessionList();
       });
-
       sessionList.appendChild(item);
     }
-  }
-
-  function loadSession(name) {
-    messagesEl.innerHTML = '';
-    send({ type: 'session-load', name: name });
-  }
-
-  function newSession() {
-    currentSession = 'default';
-    messagesEl.innerHTML = '';
-    statusTokens.textContent = '';
-    send({ type: 'session-list' });
-  }
-
-  function handleSessionLoaded(data) {
-    messagesEl.innerHTML = '';
-    for (const msg of data.messages) {
-      if (msg.role === 'user') appendMessage('user', msg.content);
-      else if (msg.role === 'assistant' && msg.content) appendMessage('assistant', msg.content);
-      else if (msg.role === 'tool') appendToolResult(msg.name, msg.content);
-    }
-    currentSession = data.name;
-    send({ type: 'session-list' });
-    scrollDown();
-  }
-
-  // ============================================================
-  // 消息发送
-  // ============================================================
-  function sendMessage() {
-    if (isGenerating) { send({ type: 'stop' }); return; }
-
-    const text = inputEl.value.trim();
-    if (!text) return;
-
-    appendMessage('user', text);
-    inputEl.value = '';
-    inputEl.style.height = 'auto';
-
-    isGenerating = true;
-    sendBtn.classList.add('generating');
-    sendBtn.textContent = '■';
-    toolCallCount = 0;
-
-    currentAssistantMsg = appendMessage('assistant', '');
-    currentAssistantMsg.querySelector('.message-content').classList.add('streaming-cursor');
-    currentToolPanel = null;
-
-    send({ type: 'chat', text: text });
   }
 
   // ============================================================
@@ -250,20 +195,11 @@
   function appendMessage(role, content) {
     const div = document.createElement('div');
     div.className = 'message ' + role;
-    const label = role === 'user' ? '你' : 'AI-Shell';
-    div.innerHTML = `<div class="message-label">${label}</div>
+    div.innerHTML = `<div class="message-label">${role === 'user' ? '你' : 'AI Shell'}</div>
       <div class="message-content">${content ? renderContent(content) : ''}</div>`;
     messagesEl.appendChild(div);
     scrollDown();
     return div;
-  }
-
-  function appendToolResult(name, content) {
-    const panel = createToolPanel(name, {});
-    panel.querySelector('.tool-status').textContent = '完成'; panel.querySelector('.tool-status').className = 'tool-status done';
-    panel.querySelector('.tool-dot').className = 'tool-dot done';
-    panel.querySelector('.tool-body').textContent = (content || '').slice(0, 500);
-    messagesEl.appendChild(panel);
   }
 
   function renderContent(text) {
@@ -271,8 +207,8 @@
     let html = escapeHtml(text);
     html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
       const l = lang || 'code';
-      const esc = code.trim().replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$/g, '\\$').replace(/"/g, '&quot;');
-      return `<div class="code-label-row"><span>${escapeHtml(l)}</span><button class="copy-btn" onclick="var t=this;t.textContent='已复制';t.classList.add('copied');navigator.clipboard.writeText('${esc}');setTimeout(function(){t.textContent='复制';t.classList.remove('copied')},2000)">复制</button></div><pre><code>${escapeHtml(code.trim())}</code></pre>`;
+      const esc = code.trim().replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$/g, '\\$');
+      return `<div class="code-label-row"><span>${escapeHtml(l)}</span><button class="copy-btn" onclick="navigator.clipboard.writeText('${esc}');this.textContent='已复制';this.classList.add('copied');setTimeout(()=>{this.textContent='复制';this.classList.remove('copied')},2000)">复制</button></div><pre><code>${escapeHtml(code.trim())}</code></pre>`;
     });
     html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
     html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
@@ -295,53 +231,29 @@
   // ============================================================
   // 设置
   // ============================================================
-  function showSettings() {
+  async function showSettings() {
     settingsOverlay.classList.remove('hidden');
-    send({ type: 'get-save-path' });
+    const s = await window.aiShell.getSettings();
+    if (s.defaultSavePath) $('#save-path-input').value = s.defaultSavePath;
+    $('#model-select').value = s.model || 'deepseek-chat';
   }
   function hideSettings() { settingsOverlay.classList.add('hidden'); }
 
-  function saveSettings() {
+  async function saveSettings() {
     const apiKey = $('#api-key-input').value.trim();
     const model = $('#model-select').value;
     const savePath = $('#save-path-input').value.trim();
-    if (apiKey) send({ type: 'set-api-key', key: apiKey });
-    if (model) { send({ type: 'set-model', model: model }); statusModel.textContent = model; }
-    if (savePath) send({ type: 'set-save-path', path: savePath });
+    await window.aiShell.saveSettings({ apiKey, model, savePath });
+    statusModel.textContent = model;
     statusDir.textContent = '● 已连接';
     hideSettings();
   }
 
   // ============================================================
-  // 事件
+  // 辅助
   // ============================================================
-  function bindEvents() {
-    sendBtn.addEventListener('click', sendMessage);
-    inputEl.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
-    });
-    inputEl.addEventListener('input', () => {
-      inputEl.style.height = 'auto';
-      inputEl.style.height = Math.min(inputEl.scrollHeight, 120) + 'px';
-    });
-    $('#btn-new-session').addEventListener('click', () => { if (!isGenerating) { send({ type: 'session-clear' }); newSession(); } });
-    $('#btn-settings').addEventListener('click', showSettings);
-    $('#btn-settings-save').addEventListener('click', saveSettings);
-    $('#btn-settings-cancel').addEventListener('click', hideSettings);
-    $('#btn-pick-path').addEventListener('click', () => send({ type: 'pick-folder' }));
-  }
+  function escapeHtml(text) { const d = document.createElement('div'); d.textContent = text; return d.innerHTML; }
+  function scrollDown() { const c = $('#chat-container'); requestAnimationFrame(() => { c.scrollTop = c.scrollHeight; }); }
 
-  function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-  }
-
-  function scrollDown() {
-    const c = $('#chat-container');
-    requestAnimationFrame(() => { c.scrollTop = c.scrollHeight; });
-  }
-
-  bindEvents();
-  connect();
+  init();
 })();

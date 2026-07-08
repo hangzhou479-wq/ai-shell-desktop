@@ -1,4 +1,4 @@
-name: Build AI-Shell
+name: Build AI Shell
 
 on:
   push:
@@ -6,9 +6,6 @@ on:
   workflow_dispatch:
 
 jobs:
-  # ============================================
-  # macOS
-  # ============================================
   build-mac:
     runs-on: macos-latest
     steps:
@@ -16,21 +13,20 @@ jobs:
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
-        with:
-          node-version: '20'
+        with: { node-version: '20' }
 
-      - name: Run build
-        run: bash build_mac.sh
+      - name: Install dependencies
+        run: npm install
 
-      - name: Upload artifact
+      - name: Build macOS
+        run: npx electron-builder --mac --publish=never
+
+      - name: Upload DMG
         uses: actions/upload-artifact@v4
         with:
           name: AI-Shell-macOS
-          path: dist/AI-Shell-*.dmg
+          path: dist/AI Shell-*.dmg
 
-  # ============================================
-  # Windows
-  # ============================================
   build-win:
     runs-on: windows-latest
     steps:
@@ -38,15 +34,16 @@ jobs:
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
-        with:
-          node-version: '20'
+        with: { node-version: '20' }
 
-      - name: Run build
-        run: bash build_win.sh
-        shell: bash
+      - name: Install dependencies
+        run: npm install
 
-      - name: Upload artifact
+      - name: Build Windows
+        run: npx electron-builder --win --publish=never
+
+      - name: Upload EXE
         uses: actions/upload-artifact@v4
         with:
           name: AI-Shell-Windows
-          path: dist/AI-Shell-*.zip
+          path: dist/AI Shell Setup*.exe
