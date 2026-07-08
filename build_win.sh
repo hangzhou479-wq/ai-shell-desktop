@@ -1,7 +1,6 @@
 #!/bin/bash
 # ============================================
 # AI-Shell - Windows 打包脚本
-# 参考文渊的 PyInstaller --onedir 模式
 # ============================================
 set -e
 
@@ -11,36 +10,52 @@ echo "========================================"
 echo ""
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
-DIST_DIR="$PROJECT_DIR/dist/AI-Shell-Windows"
-rm -rf "$DIST_DIR"
+DIST_DIR="$SCRIPT_DIR/dist/AI-Shell-Windows"
+rm -rf "$DIST_DIR" "$SCRIPT_DIR/dist/AI-Shell-Windows.zip"
 mkdir -p "$DIST_DIR"
 
-# 1. 复制核心文件
-echo "[1/4] 复制项目文件..."
-cp -r "$SCRIPT_DIR" "$DIST_DIR/ai-shell"
-rm -rf "$DIST_DIR/ai-shell/node_modules" "$DIST_DIR/ai-shell/.github"
-cp -r "$PROJECT_DIR/ai-shell-desktop" "$DIST_DIR/ai-shell-desktop"
-rm -rf "$DIST_DIR/ai-shell-desktop/node_modules"
+# 1. 安装依赖
+echo "[1/5] 安装依赖..."
+cd "$SCRIPT_DIR"
+rm -rf node_modules
+npm install --omit=dev 2>/dev/null
+npm install ws --omit=dev 2>/dev/null
+rm -rf node_modules/.bin 2>/dev/null
 
-# 2. 复制依赖
-echo "[2/4] 复制依赖包..."
+# 2. 复制文件
+echo "[2/5] 复制文件..."
+mkdir -p "$DIST_DIR/ai-shell" "$DIST_DIR/ai-shell-desktop"
+
+cp -r "$SCRIPT_DIR/src"          "$DIST_DIR/ai-shell/"
+cp -r "$SCRIPT_DIR/bin"          "$DIST_DIR/ai-shell/"
+cp    "$SCRIPT_DIR/package.json" "$DIST_DIR/ai-shell/"
+
+cp    "$SCRIPT_DIR/main.js"      "$DIST_DIR/ai-shell-desktop/"
+cp -r "$SCRIPT_DIR/renderer"     "$DIST_DIR/ai-shell-desktop/"
+
+# 3. 复制依赖
+echo "[3/5] 复制依赖..."
 cp -r "$SCRIPT_DIR/node_modules" "$DIST_DIR/ai-shell/"
-cp -r "$PROJECT_DIR/ai-shell-desktop/node_modules" "$DIST_DIR/ai-shell-desktop/"
+cp -r "$SCRIPT_DIR/node_modules" "$DIST_DIR/ai-shell-desktop/"
 
-# 3. 便携 Node.js
-echo "[3/4] 打包 Node.js 运行时..."
-NODE_EXE="$PROJECT_DIR/ai-shell-desktop/node.exe"
+# 4. 便携 Node.js (Windows)
+echo "[4/5] 打包 Node.js..."
+NODE_EXE="$SCRIPT_DIR/node.exe"
 if [ ! -f "$NODE_EXE" ]; then
-    echo "  警告: 未找到 node.exe，请先下载到 ai-shell-desktop/"
-    echo "  curl -L -o node-win.zip https://nodejs.org/dist/v20.19.0/node-v20.19.0-win-x64.zip"
-    echo "  unzip node-win.zip"
-    echo "  cp node-v20.19.0-win-x64/node.exe ai-shell-desktop/"
+    echo "  下载便携 Node.js for Windows..."
+    curl -sL "https://nodejs.org/dist/v20.19.0/node-v20.19.0-win-x64.zip" -o /tmp/node-win.zip
+    unzip -o /tmp/node-win.zip -d /tmp/node-win/ 2>/dev/null
+    NODE_EXE=$(find /tmp/node-win -name "node.exe" | head -1)
 fi
-cp "$NODE_EXE" "$DIST_DIR/ai-shell-desktop/node.exe" 2>/dev/null || echo "  跳过（node.exe 不存在）"
+if [ -f "$NODE_EXE" ]; then
+    cp "$NODE_EXE" "$DIST_DIR/ai-shell-desktop/node.exe"
+    echo "  node.exe ready"
+else
+    echo "  WARNING: node.exe not found. Build will still complete but won't be portable."
+fi
 
-# 4. 创建启动器
-echo "[4/4] 创建启动器..."
+# 5. 启动器 + ZIP
+echo "[5/5] 创建 ZIP..."
 cat > "$DIST_DIR/AI-Shell.bat" << 'BATEOF'
 @echo off
 title AI-Shell
@@ -65,16 +80,11 @@ pause >nul
 taskkill /F /IM node.exe >nul 2>&1
 BATEOF
 
-cp "$PROJECT_DIR/Windows/API-Key申请指南.md" "$DIST_DIR/"
-
-# 5. 打包 ZIP
-echo ""
-echo "打包 ZIP..."
-cd "$PROJECT_DIR/dist"
-zip -r "AI-Shell-Windows.zip" "AI-Shell-Windows/" 2>/dev/null
+cd "$SCRIPT_DIR/dist"
+zip -r "AI-Shell-Windows.zip" "AI-Shell-Windows/"
 
 echo ""
 echo "========================================"
-echo "  打包完成！"
-echo "  ZIP: dist/AI-Shell-Windows.zip"
+echo "  Done! dist/AI-Shell-Windows.zip"
 echo "========================================"
+ls -lh "$SCRIPT_DIR/dist/AI-Shell-Windows.zip"

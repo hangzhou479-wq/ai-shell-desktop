@@ -19,22 +19,10 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install dependencies
-        run: |
-          cd ai-shell && npm install --omit=dev
-          cd ../ai-shell-desktop && npm install --omit=dev
+      - name: Run build
+        run: bash build_mac.sh
 
-      - name: Download portable Node.js for macOS
-        run: |
-          curl -L -o /tmp/node-mac.tar.gz https://nodejs.org/dist/v20.19.0/node-v20.19.0-darwin-arm64.tar.gz
-          tar -xzf /tmp/node-mac.tar.gz -C /tmp/
-          cp /tmp/node-v20.19.0-darwin-arm64/bin/node ai-shell-desktop/
-
-      - name: Package macOS
-        run: |
-          bash ai-shell/build_mac.sh
-
-      - name: Upload macOS artifact
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: AI-Shell-macOS
@@ -53,25 +41,11 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install dependencies
-        run: |
-          cd ai-shell; npm install --omit=dev
-          cd ..\ai-shell-desktop; npm install --omit=dev
+      - name: Run build
+        run: bash build_win.sh
         shell: bash
 
-      - name: Download portable Node.js for Windows
-        run: |
-          curl -L -o node-win.zip https://nodejs.org/dist/v20.19.0/node-v20.19.0-win-x64.zip
-          unzip -o node-win.zip -d /tmp/
-          cp /tmp/node-v20.19.0-win-x64/node.exe ai-shell-desktop/
-        shell: bash
-
-      - name: Package Windows
-        run: |
-          bash ai-shell/build_win.sh
-        shell: bash
-
-      - name: Upload Windows artifact
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: AI-Shell-Windows
