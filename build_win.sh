@@ -1,6 +1,7 @@
 #!/bin/bash
 # ============================================
 # AI-Shell - Windows 打包脚本
+# 在 GitHub Actions (windows-latest + bash) 上运行
 # ============================================
 set -e
 
@@ -11,7 +12,7 @@ echo ""
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 DIST_DIR="$SCRIPT_DIR/dist/AI-Shell-Windows"
-rm -rf "$DIST_DIR" "$SCRIPT_DIR/dist/AI-Shell-Windows.zip"
+rm -rf "$DIST_DIR"
 mkdir -p "$DIST_DIR"
 
 # 1. 安装依赖
@@ -51,11 +52,12 @@ if [ -f "$NODE_EXE" ]; then
     cp "$NODE_EXE" "$DIST_DIR/ai-shell-desktop/node.exe"
     echo "  node.exe ready"
 else
-    echo "  WARNING: node.exe not found. Build will still complete but won't be portable."
+    echo "  WARNING: node.exe not found, build will continue"
 fi
 
 # 5. 启动器 + ZIP
-echo "[5/5] 创建 ZIP..."
+echo "[5/5] 创建启动器 + 打包..."
+
 cat > "$DIST_DIR/AI-Shell.bat" << 'BATEOF'
 @echo off
 title AI-Shell
@@ -80,8 +82,9 @@ pause >nul
 taskkill /F /IM node.exe >nul 2>&1
 BATEOF
 
+# Windows 用 PowerShell Compress-Archive（不依赖 zip 命令）
 cd "$SCRIPT_DIR/dist"
-zip -r "AI-Shell-Windows.zip" "AI-Shell-Windows/"
+powershell -Command "Compress-Archive -Path 'AI-Shell-Windows' -DestinationPath 'AI-Shell-Windows.zip' -Force"
 
 echo ""
 echo "========================================"
